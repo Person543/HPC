@@ -19,6 +19,15 @@ file_list = 'worm_list'
 file_dir = worm_dir
 #########################
 
+########## ASLRay Configuration ##########
+# Set aslray_mode to True to run ASLRay exploits with HPC data collection
+aslray_mode = False
+aslray_binary = "/tmp/test"    # path to vulnerable binary inside the container
+aslray_buffer = 1024           # buffer size for ASLRay exploit
+aslray_shellcode = None        # optional custom shellcode (e.g. '\x31\x80...')
+aslray_timeout = 60            # seconds before killing the exploit loop
+##############################################
+
 def is_net_on():
 	try:
 		host = socket.gethostbyname('www.google.com')
@@ -37,27 +46,51 @@ if __name__ == "__main__":
 		print "exiting..."
 		sys.exit()
 
-	# get list of trojans
-	fd = open('conf/%s'%(file_list), 'r')
-	l_malware = fd.read().split('\n')
-	fd.close()
-	
 	cobj = Container()
 	cont = cobj.get()
-	
-	for num, name in enumerate(l_malware):
-		print "%d -> %s" %(num, name)
-		clone = cobj.clone(cont)
 
-		cobj.cmd(clone, "chmod 777 %s%s" % (file_dir, name))
-		cobj.cmd(clone, "timeout 6s perf stat -I 10 -e %s -x, %s%s" % (events[1], file_dir, name))
-		
-		# For SPEC benchmarks
-		#cobj.cmd(clone, "perf stat -I 10 -e %s -x, runspec --size=test --noreportable --tune=base --iterations=1 %s" % (events[1], name))
-		#cobj.cmd(clone, 'runspec')
-		clone.destroy()
+	if aslray_mode:
+		# ASLRay exploit mode - run ASLRay inside containers with perf monitoring
+		print "=== ASLRay Mode ==="
+		print "binary: %s  buffer: %d  timeout: %ds" % (
+			aslray_binary, aslray_buffer, aslray_timeout)
 
-		p = Parser()
-		p.parse(num)
-		#p.parse(name.replace(".","_"))
-		#break
+		# get list of samples to use as exploit targets
+		fd = open('conf/%s'%(file_list), 'r')
+		l_malware = fd.read().split('\n')
+		fd.close()
+
+		for num, name in enumerate(l_malware):
+			print "%d -> %s (ASLRay)" %(num, name)
+			clone = cobj.clone(cont)
+
+			cobj.cmd_aslray(clone, "%s%s" % (file_dir, name),
+				aslray_buffer, events[1],
+				shellcode=aslray_shellcode,
+				timeout=aslray_timeout)
+			clone.destroy()
+
+			p = Parser()
+			p.parse(num)
+	else:
+		# Original mode - run malware samples directly with perf monitoring
+		fd = open('conf/%s'%(file_list), 'r')
+		l_malware = fd.read().split('\n')
+		fd.close()
+
+		for num, name in enumerate(l_malware):
+			print "%d -> %s" %(num, name)
+			clone = cobj.clone(cont)
+
+			cobj.cmd(clone, "chmod 777 %s%s" % (file_dir, name))
+			cobj.cmd(clone, "timeout 6s perf stat -I 10 -e %s -x, %s%s" % (events[1], file_dir, name))
+
+			# For SPEC benchmarks
+			#cobj.cmd(clone, "perf stat -I 10 -e %s -x, runspec --size=test --noreportable --tune=base --iterations=1 %s" % (events[1], name))
+			#cobj.cmd(clone, 'runspec')
+			clone.destroy()
+
+			p = Parser()
+			p.parse(num)
+			#p.parse(name.replace(".","_"))
+			#break
