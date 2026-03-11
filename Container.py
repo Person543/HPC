@@ -22,7 +22,7 @@ class Container(object):
 
 	# clone container
 	def clone(self, cont):
-		print "cloning container for test..."
+		print("cloning container for test...")
 
 		clone = cont.clone('tmp-cont', flags=lxc.LXC_CLONE_SNAPSHOT)
 
@@ -36,7 +36,7 @@ class Container(object):
 		fd = open('output', 'w')
 		fd_perf = open('perf_out', 'w')
 
-		print "starting container.."
+		print("starting container..")
 		cont.start()
 
 		cont.attach_wait(lxc.attach_run_command, command.split(' '),
@@ -45,14 +45,14 @@ class Container(object):
 		fd.close()
 		fd_perf.close()
 		
-		print "stopping container.."
+		print("stopping container..")
 		cont.stop()
 
 	# copy a file into a running container using base64 encoding
 	def push_file(self, cont, src_path, dest_path):
-		with open(src_path, 'r') as f:
+		with open(src_path, 'rb') as f:
 			content = f.read()
-		encoded = base64.b64encode(content)
+		encoded = base64.b64encode(content).decode('ascii')
 		cmd = ['bash', '-c',
 			'echo %s | base64 -d > %s && chmod +x %s' % (
 				encoded, dest_path, dest_path)]
@@ -65,7 +65,7 @@ class Container(object):
 		fd = open('aslray_output', 'w')
 		fd_err = open('aslray_error', 'w')
 
-		print "starting container for ASLRay exploit..."
+		print("starting container for ASLRay exploit...")
 		cont.start()
 
 		# copy ASLRay.sh into the container
@@ -94,7 +94,7 @@ class Container(object):
 		fd.close()
 		fd_err.close()
 
-		print "stopping container..."
+		print("stopping container...")
 		cont.stop()
 
 	# run ASLRay with perf stat monitoring inside the container
@@ -105,7 +105,7 @@ class Container(object):
 		fd = open('output', 'w')
 		fd_perf = open('perf_out', 'w')
 
-		print "starting container for ASLRay with perf monitoring..."
+		print("starting container for ASLRay with perf monitoring...")
 		cont.start()
 
 		# copy ASLRay.sh into the container
@@ -138,5 +138,5 @@ class Container(object):
 		fd.close()
 		fd_perf.close()
 
-		print "stopping container..."
+		print("stopping container...")
 		cont.stop()
