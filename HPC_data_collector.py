@@ -33,17 +33,17 @@ def is_net_on():
 		host = socket.gethostbyname('www.google.com')
 		s = socket.create_connection((host, 80), 2)
 		return True
-	except:
+	except Exception:
 		return False
 
 
 if __name__ == "__main__":
 
 	if is_net_on():
-		print "****************************"
-		print "Warning : Turn off the Internet!!"
-		print "****************************"
-		print "exiting..."
+		print("****************************")
+		print("Warning : Turn off the Internet!!")
+		print("****************************")
+		print("exiting...")
 		sys.exit()
 
 	cobj = Container()
@@ -51,9 +51,9 @@ if __name__ == "__main__":
 
 	if aslray_mode:
 		# ASLRay exploit mode - run ASLRay inside containers with perf monitoring
-		print "=== ASLRay Mode ==="
-		print "binary: %s  buffer: %d  timeout: %ds" % (
-			aslray_binary, aslray_buffer, aslray_timeout)
+		print("=== ASLRay Mode ===")
+		print("binary: %s  buffer: %d  timeout: %ds" % (
+			aslray_binary, aslray_buffer, aslray_timeout))
 
 		# get list of samples to use as exploit targets
 		fd = open('conf/%s'%(file_list), 'r')
@@ -61,7 +61,7 @@ if __name__ == "__main__":
 		fd.close()
 
 		for num, name in enumerate(l_malware):
-			print "%d -> %s (ASLRay)" %(num, name)
+			print("%d -> %s (ASLRay)" %(num, name))
 			clone = cobj.clone(cont)
 
 			cobj.cmd_aslray(clone, "%s%s" % (file_dir, name),
@@ -79,7 +79,7 @@ if __name__ == "__main__":
 		fd.close()
 
 		for num, name in enumerate(l_malware):
-			print "%d -> %s" %(num, name)
+			print("%d -> %s" %(num, name))
 			clone = cobj.clone(cont)
 
 			cobj.cmd(clone, "chmod 777 %s%s" % (file_dir, name))

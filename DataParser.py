@@ -33,7 +33,7 @@ class Parser(object):
 			else:
 				d_data[event].append(val)
 
-		df = pd.DataFrame(d_data.values(), index=d_data.keys())
+		df = pd.DataFrame(list(d_data.values()), index=list(d_data.keys()))
 		df = df.transpose()
 		
 		# For malware (stores as numbers)
