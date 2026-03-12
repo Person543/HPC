@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from Container import Container
-from DataParser import Parser
 import argparse
 import shutil
 import subprocess
@@ -153,6 +151,11 @@ if __name__ == "__main__":
 
 	# check all dependencies before doing anything else
 	check_dependencies()
+
+	# import after dependency check so missing python3-lxc gives a
+	# friendly error instead of a raw ImportError traceback
+	from Container import Container
+	from DataParser import Parser
 
 	if not args.allow_network and is_net_on():
 		print("****************************")
