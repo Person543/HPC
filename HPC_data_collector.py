@@ -78,7 +78,7 @@ if __name__ == "__main__":
 		sys.exit(1)
 
 	with open(args.sample_list, 'r') as fd:
-		l_samples = [line for line in fd.read().split('\n') if line.strip()]
+		l_samples = [line.strip() for line in fd.read().split('\n') if line.strip()]
 
 	if not l_samples:
 		print("error: sample list is empty: %s" % args.sample_list)
