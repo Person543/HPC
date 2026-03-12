@@ -1,27 +1,18 @@
 import pandas as pd
 import re
+import os
 from collections import defaultdict
 
-trojan_dir = "results/malware/trojan/"
-worm_dir = "results/malware/worm/"
-virus_dir = "results/malware/virus/"
-rootkit_dir = "results/malware/rootkit/"
-backdoor_dir = "results/malware/backdoor/"
-spec_dir = "results/benign/spec/"
-mibench_dir = "results/benign/mibench/"
-
-########################
-res_dir = worm_dir
-##################
 """ Parse perf file to create csv """
 class Parser(object):
 
-	def __init__(self):
-		pass
+	def __init__(self, result_dir='results/', perf_file='perf_out'):
+		self.result_dir = result_dir
+		self.perf_file = perf_file
+		os.makedirs(self.result_dir, exist_ok=True)
 
 	def parse(self, num):
-		fd_perf = open('perf_out', 'r')
-		#fd_perf = open('spec_result/%s'%(num), 'r')
+		fd_perf = open(self.perf_file, 'r')
 		
 		d_data = defaultdict(list)
 		
@@ -36,9 +27,6 @@ class Parser(object):
 		df = pd.DataFrame(list(d_data.values()), index=list(d_data.keys()))
 		df = df.transpose()
 		
-		# For malware (stores as numbers)
-		df.to_csv('%s%d'%(res_dir,num), index=None)
+		df.to_csv(os.path.join(self.result_dir, str(num)), index=None)
 
-		# For benign applications (stores as file name)
-		#df.to_csv('%s%s'%(res_dir,num), index=None)
 		fd_perf.close()
