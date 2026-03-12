@@ -183,7 +183,7 @@ if __name__ == "__main__":
 
 			cobj.cmd(clone, "chmod 777 %s" % bin_path, host_binary=host_bin)
 			cobj.cmd(clone, "timeout 6s perf stat -I 10 -e %s -x, %s" % (
-				args.events, bin_path))
+				args.events, bin_path), host_binary=host_bin)
 			clone.destroy()
 
 			p = Parser(result_dir=args.result_dir)
