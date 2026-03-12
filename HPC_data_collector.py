@@ -8,6 +8,15 @@ import os
 
 DEFAULT_EVENTS = 'L1-dcache-load-misses,L1-dcache-loads,L1-dcache-stores,L1-icache-load-misses,LLC-load-misses,LLC-loads,branch-loads,iTLB-load-misses'
 
+def discover_binaries(directory):
+	"""Auto-discover executable files in a directory."""
+	binaries = []
+	for name in sorted(os.listdir(directory)):
+		path = os.path.join(directory, name)
+		if os.path.isfile(path) and not name.startswith('.'):
+			binaries.append(name)
+	return binaries
+
 def is_net_on():
 	try:
 		host = socket.gethostbyname('www.google.com')
@@ -31,11 +40,12 @@ def build_parser():
 	parser.add_argument('--aslray', action='store_true',
 		help='enable ASLRay exploit mode (default: direct execution mode)')
 
-	# sample list
+	# sample directory
 	parser.add_argument('--sample-dir', required=True,
-		help='directory containing the binary samples to run')
-	parser.add_argument('--sample-list', required=True,
-		help='path to a text file listing sample names (one per line)')
+		help='directory containing the binary samples to run (auto-discovers all files)')
+	parser.add_argument('--sample-list', default=None,
+		help='optional: path to a text file listing specific sample names to run '
+			'(one per line). If omitted, all files in --sample-dir are used')
 
 	# perf events
 	parser.add_argument('--events', default=DEFAULT_EVENTS,
@@ -72,22 +82,30 @@ if __name__ == "__main__":
 		print("exiting...")
 		sys.exit(1)
 
-	# read sample list
-	if not os.path.isfile(args.sample_list):
-		print("error: sample list not found: %s" % args.sample_list)
-		sys.exit(1)
-
-	with open(args.sample_list, 'r') as fd:
-		l_samples = [line.strip() for line in fd.read().split('\n') if line.strip()]
-
-	if not l_samples:
-		print("error: sample list is empty: %s" % args.sample_list)
-		sys.exit(1)
-
-	# ensure sample_dir ends with /
+	# resolve sample directory
 	sample_dir = args.sample_dir
+	if not os.path.isdir(sample_dir):
+		print("error: sample directory not found: %s" % sample_dir)
+		sys.exit(1)
+
 	if not sample_dir.endswith('/'):
 		sample_dir += '/'
+
+	# discover or read sample list
+	if args.sample_list:
+		if not os.path.isfile(args.sample_list):
+			print("error: sample list not found: %s" % args.sample_list)
+			sys.exit(1)
+		with open(args.sample_list, 'r') as fd:
+			l_samples = [line.strip() for line in fd.read().split('\n') if line.strip()]
+	else:
+		l_samples = discover_binaries(sample_dir)
+
+	if not l_samples:
+		print("error: no samples found in %s" % sample_dir)
+		sys.exit(1)
+
+	print("found %d samples in %s" % (len(l_samples), sample_dir))
 
 	cobj = Container(container_name=args.container, clone_name=args.clone_name)
 	cont = cobj.get()
