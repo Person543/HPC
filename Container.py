@@ -5,7 +5,9 @@ import base64
 # generic container class
 class Container(object):
 
-	def __init__(self):
+	def __init__(self, container_name='new-cont', clone_name='tmp-cont'):
+		self.container_name = container_name
+		self.clone_name = clone_name
 		self.aslray_path = os.path.join(
 			os.path.dirname(os.path.abspath(__file__)), 'ASLRay.sh')
 
@@ -13,10 +15,11 @@ class Container(object):
 	def get(self):
 		cont = None
 		for cont_obj in lxc.list_containers(as_object=True):
-			if cont_obj.name == 'new-cont':
+			if cont_obj.name == self.container_name:
 				cont = cont_obj
 
-		assert cont.name == 'new-cont'
+		if cont is None:
+			raise RuntimeError("container '%s' not found" % self.container_name)
 
 		return cont
 
@@ -24,9 +27,10 @@ class Container(object):
 	def clone(self, cont):
 		print("cloning container for test...")
 
-		clone = cont.clone('tmp-cont', flags=lxc.LXC_CLONE_SNAPSHOT)
+		clone = cont.clone(self.clone_name, flags=lxc.LXC_CLONE_SNAPSHOT)
 
-		assert clone.name == 'tmp-cont'
+		if clone is None or clone.name != self.clone_name:
+			raise RuntimeError("failed to clone container as '%s'" % self.clone_name)
 
 		return clone
 

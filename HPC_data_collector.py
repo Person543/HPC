@@ -1,32 +1,12 @@
-from Container import *
-from DataParser import *
+#!/usr/bin/env python3
+from Container import Container
+from DataParser import Parser
+import argparse
 import socket
 import sys
+import os
 
-events = ['instructions,bus-cycles,branch-instructions,branch-misses,cache-misses,cache-references,node-loads,node-stores',
-		'L1-dcache-load-misses,L1-dcache-loads,L1-dcache-stores,L1-icache-load-misses,LLC-load-misses,LLC-loads,branch-loads,iTLB-load-misses']
-
-troj_dir = "/home/ubuntu/malware_seperated/trojan/"
-virus_dir = "/home/ubuntu/malware_seperated/virus/"
-backdoor_dir = "/home/ubuntu/malware_seperated/backdoor/"
-rootkit_dir = "/home/ubuntu/malware_seperated/rootkit/"
-worm_dir = "/home/ubuntu/malware_seperated/worm/"
-mibench_dir = "/home/research/work/mibench/scripts/"
-spec_dir = "/home/research/work/spec/scripts/"
-
-#########################
-file_list = 'worm_list'
-file_dir = worm_dir
-#########################
-
-########## ASLRay Configuration ##########
-# Set aslray_mode to True to run ASLRay exploits with HPC data collection
-aslray_mode = False
-aslray_binary = "/tmp/test"    # path to vulnerable binary inside the container
-aslray_buffer = 1024           # buffer size for ASLRay exploit
-aslray_shellcode = None        # optional custom shellcode (e.g. '\x31\x80...')
-aslray_timeout = 60            # seconds before killing the exploit loop
-##############################################
+DEFAULT_EVENTS = 'L1-dcache-load-misses,L1-dcache-loads,L1-dcache-stores,L1-icache-load-misses,LLC-load-misses,LLC-loads,branch-loads,iTLB-load-misses'
 
 def is_net_on():
 	try:
@@ -36,61 +16,110 @@ def is_net_on():
 	except Exception:
 		return False
 
+def build_parser():
+	parser = argparse.ArgumentParser(
+		description='HPC data collector - run binaries inside LXC containers with perf stat monitoring. '
+			'Supports both direct execution and ASLRay exploit modes.')
+
+	# container settings
+	parser.add_argument('--container', default='new-cont',
+		help='name of the LXC container to use (default: new-cont)')
+	parser.add_argument('--clone-name', default='tmp-cont',
+		help='name for the cloned container (default: tmp-cont)')
+
+	# mode selection
+	parser.add_argument('--aslray', action='store_true',
+		help='enable ASLRay exploit mode (default: direct execution mode)')
+
+	# sample list
+	parser.add_argument('--sample-dir', required=True,
+		help='directory containing the binary samples to run')
+	parser.add_argument('--sample-list', required=True,
+		help='path to a text file listing sample names (one per line)')
+
+	# perf events
+	parser.add_argument('--events', default=DEFAULT_EVENTS,
+		help='comma-separated perf events to monitor (default: %(default)s)')
+
+	# output
+	parser.add_argument('--result-dir', default='results/',
+		help='directory to store parsed CSV results (default: results/)')
+
+	# ASLRay-specific options
+	aslray_group = parser.add_argument_group('ASLRay options (only used with --aslray)')
+	aslray_group.add_argument('--buffer', type=int, default=1024,
+		help='buffer size for ASLRay exploit (default: 1024)')
+	aslray_group.add_argument('--shellcode', default=None,
+		help='custom shellcode for ASLRay (e.g. \'\\x31\\xc0...\')')
+	aslray_group.add_argument('--timeout', type=int, default=60,
+		help='seconds before killing the ASLRay exploit loop (default: 60)')
+
+	# safety
+	parser.add_argument('--allow-network', action='store_true',
+		help='skip the internet safety check (default: exit if network is on)')
+
+	return parser
+
 
 if __name__ == "__main__":
 
-	if is_net_on():
+	args = build_parser().parse_args()
+
+	if not args.allow_network and is_net_on():
 		print("****************************")
 		print("Warning : Turn off the Internet!!")
 		print("****************************")
 		print("exiting...")
-		sys.exit()
+		sys.exit(1)
 
-	cobj = Container()
+	# read sample list
+	if not os.path.isfile(args.sample_list):
+		print("error: sample list not found: %s" % args.sample_list)
+		sys.exit(1)
+
+	with open(args.sample_list, 'r') as fd:
+		l_samples = [line for line in fd.read().split('\n') if line.strip()]
+
+	if not l_samples:
+		print("error: sample list is empty: %s" % args.sample_list)
+		sys.exit(1)
+
+	# ensure sample_dir ends with /
+	sample_dir = args.sample_dir
+	if not sample_dir.endswith('/'):
+		sample_dir += '/'
+
+	cobj = Container(container_name=args.container, clone_name=args.clone_name)
 	cont = cobj.get()
 
-	if aslray_mode:
+	if args.aslray:
 		# ASLRay exploit mode - run ASLRay inside containers with perf monitoring
 		print("=== ASLRay Mode ===")
-		print("binary: %s  buffer: %d  timeout: %ds" % (
-			aslray_binary, aslray_buffer, aslray_timeout))
+		print("binary dir: %s  buffer: %d  timeout: %ds" % (
+			sample_dir, args.buffer, args.timeout))
 
-		# get list of samples to use as exploit targets
-		fd = open('conf/%s'%(file_list), 'r')
-		l_malware = fd.read().split('\n')
-		fd.close()
-
-		for num, name in enumerate(l_malware):
-			print("%d -> %s (ASLRay)" %(num, name))
+		for num, name in enumerate(l_samples):
+			print("%d -> %s (ASLRay)" % (num, name))
 			clone = cobj.clone(cont)
 
-			cobj.cmd_aslray(clone, "%s%s" % (file_dir, name),
-				aslray_buffer, events[1],
-				shellcode=aslray_shellcode,
-				timeout=aslray_timeout)
+			cobj.cmd_aslray(clone, "%s%s" % (sample_dir, name),
+				args.buffer, args.events,
+				shellcode=args.shellcode,
+				timeout=args.timeout)
 			clone.destroy()
 
-			p = Parser()
+			p = Parser(result_dir=args.result_dir)
 			p.parse(num)
 	else:
-		# Original mode - run malware samples directly with perf monitoring
-		fd = open('conf/%s'%(file_list), 'r')
-		l_malware = fd.read().split('\n')
-		fd.close()
-
-		for num, name in enumerate(l_malware):
-			print("%d -> %s" %(num, name))
+		# Direct execution mode - run samples with perf monitoring
+		for num, name in enumerate(l_samples):
+			print("%d -> %s" % (num, name))
 			clone = cobj.clone(cont)
 
-			cobj.cmd(clone, "chmod 777 %s%s" % (file_dir, name))
-			cobj.cmd(clone, "timeout 6s perf stat -I 10 -e %s -x, %s%s" % (events[1], file_dir, name))
-
-			# For SPEC benchmarks
-			#cobj.cmd(clone, "perf stat -I 10 -e %s -x, runspec --size=test --noreportable --tune=base --iterations=1 %s" % (events[1], name))
-			#cobj.cmd(clone, 'runspec')
+			cobj.cmd(clone, "chmod 777 %s%s" % (sample_dir, name))
+			cobj.cmd(clone, "timeout 6s perf stat -I 10 -e %s -x, %s%s" % (
+				args.events, sample_dir, name))
 			clone.destroy()
 
-			p = Parser()
+			p = Parser(result_dir=args.result_dir)
 			p.parse(num)
-			#p.parse(name.replace(".","_"))
-			#break
