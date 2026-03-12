@@ -139,11 +139,13 @@ if __name__ == "__main__":
 			sys.exit(1)
 
 		print("found %d samples in %s" % (len(l_samples), sample_dir))
+		push_binaries = False
 	else:
 		# default: compile and use the bundled test binary
 		test_binary = build_test_binary()
 		sample_dir = SCRIPT_DIR + '/'
 		l_samples = [os.path.basename(test_binary)]
+		push_binaries = True
 		print("using bundled test binary: %s" % test_binary)
 
 	cobj = Container(container_name=args.container, clone_name=args.clone_name)
@@ -158,11 +160,14 @@ if __name__ == "__main__":
 		for num, name in enumerate(l_samples):
 			print("%d -> %s (ASLRay)" % (num, name))
 			clone = cobj.clone(cont)
+			host_bin = "%s%s" % (sample_dir, name) if push_binaries else None
+			binary_path = '/tmp/%s' % name if push_binaries else "%s%s" % (sample_dir, name)
 
-			cobj.cmd_aslray(clone, "%s%s" % (sample_dir, name),
+			cobj.cmd_aslray(clone, binary_path,
 				args.buffer, args.events,
 				shellcode=args.shellcode,
-				timeout=args.timeout)
+				timeout=args.timeout,
+				host_binary=host_bin)
 			clone.destroy()
 
 			p = Parser(result_dir=args.result_dir)
@@ -173,10 +178,12 @@ if __name__ == "__main__":
 		for num, name in enumerate(l_samples):
 			print("%d -> %s" % (num, name))
 			clone = cobj.clone(cont)
+			host_bin = "%s%s" % (sample_dir, name) if push_binaries else None
+			bin_path = '/tmp/%s' % name if push_binaries else "%s%s" % (sample_dir, name)
 
-			cobj.cmd(clone, "chmod 777 %s%s" % (sample_dir, name))
-			cobj.cmd(clone, "timeout 6s perf stat -I 10 -e %s -x, %s%s" % (
-				args.events, sample_dir, name))
+			cobj.cmd(clone, "chmod 777 %s" % bin_path, host_binary=host_bin)
+			cobj.cmd(clone, "timeout 6s perf stat -I 10 -e %s -x, %s" % (
+				args.events, bin_path))
 			clone.destroy()
 
 			p = Parser(result_dir=args.result_dir)

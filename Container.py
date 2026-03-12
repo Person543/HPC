@@ -35,13 +35,20 @@ class Container(object):
 		return clone
 
 	# run command
-	def cmd(self, cont, command):
+	# host_binary: optional host-side binary path to push into the container
+	# before running the command. The binary will be placed at /tmp/<basename>
+	# and the command string should reference /tmp/<basename> instead of host path.
+	def cmd(self, cont, command, host_binary=None):
 		
 		fd = open('output', 'w')
 		fd_perf = open('perf_out', 'w')
 
 		print("starting container..")
 		cont.start()
+
+		if host_binary:
+			dest = '/tmp/%s' % os.path.basename(host_binary)
+			self.push_file(cont, host_binary, dest)
 
 		cont.attach_wait(lxc.attach_run_command, command.split(' '),
 			stdout=fd, stderr=fd_perf)
@@ -63,8 +70,11 @@ class Container(object):
 		cont.attach_wait(lxc.attach_run_command, cmd)
 
 	# run ASLRay exploit inside the container
+	# host_binary: optional host-side binary path to push into container
+	#   When set, binary is pushed to /tmp/<basename> and that path is used
+	#   instead of binary_path for the exploit.
 	def run_aslray(self, cont, binary_path, buffer_size,
-				   shellcode=None, timeout=60):
+				   shellcode=None, timeout=60, host_binary=None):
 
 		fd = open('aslray_output', 'w')
 		fd_err = open('aslray_error', 'w')
@@ -74,6 +84,11 @@ class Container(object):
 
 		# copy ASLRay.sh into the container
 		self.push_file(cont, self.aslray_path, '/tmp/ASLRay.sh')
+
+		# if host_binary provided, push it into the container
+		if host_binary:
+			binary_path = '/tmp/%s' % os.path.basename(host_binary)
+			self.push_file(cont, host_binary, binary_path)
 
 		# make the target binary executable
 		cont.attach_wait(lxc.attach_run_command,
@@ -103,8 +118,11 @@ class Container(object):
 
 	# run ASLRay with perf stat monitoring inside the container
 	# output is written to 'output' and 'perf_out' for DataParser compatibility
+	# host_binary: optional host-side binary path to push into container
+	#   When set, binary is pushed to /tmp/<basename> and that path is used
+	#   instead of binary_path for the exploit.
 	def cmd_aslray(self, cont, binary_path, buffer_size, perf_events,
-				   shellcode=None, timeout=60):
+				   shellcode=None, timeout=60, host_binary=None):
 
 		fd = open('output', 'w')
 		fd_perf = open('perf_out', 'w')
@@ -114,6 +132,11 @@ class Container(object):
 
 		# copy ASLRay.sh into the container
 		self.push_file(cont, self.aslray_path, '/tmp/ASLRay.sh')
+
+		# if host_binary provided, push it into the container
+		if host_binary:
+			binary_path = '/tmp/%s' % os.path.basename(host_binary)
+			self.push_file(cont, host_binary, binary_path)
 
 		# make the target binary executable
 		cont.attach_wait(lxc.attach_run_command,
