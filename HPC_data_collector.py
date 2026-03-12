@@ -14,45 +14,69 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def check_dependencies():
 	"""Check that all required tools are installed. Exit with install instructions if not."""
-	# each entry: (name, install_cmd, apt_packages)
 	missing = []
 
 	if not shutil.which('gcc'):
-		missing.append(('gcc',
-			'sudo apt-get install -y gcc',
-			['gcc']))
+		missing.append(('gcc', 'gcc'))
 
 	if not shutil.which('perf'):
-		missing.append(('perf',
-			'sudo apt-get install -y linux-tools-$(uname -r) linux-tools-generic',
-			['linux-tools-generic']))
+		missing.append(('perf', 'linux-tools-$(uname -r) linux-tools-generic'))
 
 	if not shutil.which('lxc-create'):
-		missing.append(('lxc',
-			'sudo apt-get install -y lxc',
-			['lxc']))
+		missing.append(('lxc tools', 'lxc'))
 
 	try:
 		import lxc
 	except ImportError:
-		missing.append(('python3-lxc',
-			'sudo apt-get install -y python3-lxc',
-			['python3-lxc']))
+		missing.append(('python3-lxc', 'python3-lxc'))
 
 	if missing:
 		print("=== Missing Dependencies ===")
-		print("The following tools are required but not installed:\n")
-		for name, install_cmd, _ in missing:
-			print("  %s" % name)
-			print("    install: %s\n" % install_cmd)
-		all_pkgs = []
-		for _, _, pkgs in missing:
-			all_pkgs.extend(pkgs)
-		print("Install all at once:")
-		print("  sudo apt-get install -y %s" % ' '.join(all_pkgs))
+		print("The following packages are required but not installed:\n")
+		for name, pkg in missing:
+			print("  %-15s  (apt package: %s)" % (name, pkg))
+		print()
+		print("Ask your system administrator to install them:")
+		print("  apt-get install -y %s" % ' '.join(pkg for _, pkg in missing))
+		print()
+		print("If you have sudo access:")
+		print("  sudo apt-get install -y %s" % ' '.join(pkg for _, pkg in missing))
 		sys.exit(1)
 
 	print("all dependencies found")
+
+	# check perf access (perf_event_paranoid)
+	check_perf_access()
+
+
+def check_perf_access():
+	"""Check if perf counters are accessible without root. Warn if not."""
+	paranoid_path = '/proc/sys/kernel/perf_event_paranoid'
+	if not os.path.isfile(paranoid_path):
+		return  # non-Linux or unusual setup, skip check
+
+	try:
+		with open(paranoid_path, 'r') as f:
+			level = int(f.read().strip())
+	except (ValueError, IOError):
+		return
+
+	if level > 1:
+		print()
+		print("=== perf Access Warning ===")
+		print("perf_event_paranoid = %d (needs to be <= 1 for non-root HPC access)" % level)
+		print()
+		print("Ask your system administrator to run:")
+		print("  sysctl kernel.perf_event_paranoid=1")
+		print()
+		print("Or to make it permanent:")
+		print("  echo 'kernel.perf_event_paranoid=1' >> /etc/sysctl.conf && sysctl -p")
+		print()
+		print("Current setting restricts hardware performance counters to root only.")
+		print("Without this change, perf stat will fail inside the container.")
+		sys.exit(1)
+
+	print("perf access OK (perf_event_paranoid=%d)" % level)
 
 
 def build_test_binary():
