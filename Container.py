@@ -35,9 +35,16 @@ class Container(object):
 		if not cont.create('download', lxc.LXC_CREATE_QUIET,
 				{'dist': 'ubuntu', 'release': 'focal', 'arch': 'amd64'}):
 			raise RuntimeError(
-				"failed to create container '%s'. "
-				"Try running with sudo or check LXC installation." %
-				self.container_name)
+				"failed to create container '%s'.\n"
+				"Possible fixes:\n"
+				"  1. Ask your admin to add you to the 'lxc' group:\n"
+				"       usermod -aG lxc %s\n"
+				"     Then log out and back in.\n"
+				"  2. Ask your admin to create the container for you:\n"
+				"       lxc-create -n %s -t download -- -d ubuntu -r focal -a amd64\n"
+				"  3. If you have sudo, run this script with sudo." %
+				(self.container_name, os.environ.get('USER', '$USER'),
+				 self.container_name))
 
 		print("container '%s' created successfully" % self.container_name)
 		return cont
