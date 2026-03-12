@@ -1,9 +1,6 @@
 import lxc
 import os
 import base64
-import subprocess
-import shutil
-import sys
 
 # generic container class
 class Container(object):
