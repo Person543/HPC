@@ -2,6 +2,7 @@
 from Container import Container
 from DataParser import Parser
 import argparse
+import shutil
 import subprocess
 import socket
 import sys
@@ -11,6 +12,38 @@ DEFAULT_EVENTS = 'L1-dcache-load-misses,L1-dcache-loads,L1-dcache-stores,L1-icac
 
 # directory where this script lives (and where test.c / ASLRay.sh are)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def check_dependencies():
+	"""Check that all required tools are installed. Exit with install instructions if not."""
+	missing = []
+
+	if not shutil.which('gcc'):
+		missing.append(('gcc', 'sudo apt-get install -y gcc'))
+
+	if not shutil.which('perf'):
+		missing.append(('perf', 'sudo apt-get install -y linux-tools-$(uname -r) linux-tools-generic'))
+
+	if not shutil.which('lxc-create'):
+		missing.append(('lxc', 'sudo apt-get install -y lxc'))
+
+	try:
+		import lxc
+	except ImportError:
+		missing.append(('python3-lxc', 'sudo apt-get install -y python3-lxc'))
+
+	if missing:
+		print("=== Missing Dependencies ===")
+		print("The following tools are required but not installed:\n")
+		for name, install_cmd in missing:
+			print("  %s" % name)
+			print("    install: %s\n" % install_cmd)
+		print("Install all at once:")
+		print("  sudo apt-get install -y %s" % ' '.join(
+			name for name, _ in missing))
+		sys.exit(1)
+
+	print("all dependencies found")
 
 
 def build_test_binary():
@@ -106,6 +139,9 @@ def build_parser():
 if __name__ == "__main__":
 
 	args = build_parser().parse_args()
+
+	# check all dependencies before doing anything else
+	check_dependencies()
 
 	if not args.allow_network and is_net_on():
 		print("****************************")

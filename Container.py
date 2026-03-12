@@ -1,6 +1,9 @@
 import lxc
 import os
 import base64
+import subprocess
+import shutil
+import sys
 
 # generic container class
 class Container(object):
@@ -11,16 +14,35 @@ class Container(object):
 		self.aslray_path = os.path.join(
 			os.path.dirname(os.path.abspath(__file__)), 'ASLRay.sh')
 
-	# get available container
+	# get available container, or create one if it doesn't exist
 	def get(self):
-		cont = None
 		for cont_obj in lxc.list_containers(as_object=True):
 			if cont_obj.name == self.container_name:
-				cont = cont_obj
+				print("found existing container: %s" % self.container_name)
+				return cont_obj
 
-		if cont is None:
-			raise RuntimeError("container '%s' not found" % self.container_name)
+		# container not found — create it automatically
+		print("container '%s' not found, creating it..." % self.container_name)
+		return self.create()
 
+	# create a new LXC container
+	def create(self):
+		cont = lxc.Container(self.container_name)
+		if cont.defined:
+			print("container '%s' already exists" % self.container_name)
+			return cont
+
+		print("creating LXC container '%s' (ubuntu)..." % self.container_name)
+		print("this may take a few minutes on first run...")
+
+		if not cont.create('download', lxc.LXC_CREATE_QUIET,
+				{'dist': 'ubuntu', 'release': 'focal', 'arch': 'amd64'}):
+			raise RuntimeError(
+				"failed to create container '%s'. "
+				"Try running with sudo or check LXC installation." %
+				self.container_name)
+
+		print("container '%s' created successfully" % self.container_name)
 		return cont
 
 	# clone container
