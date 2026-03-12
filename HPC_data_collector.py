@@ -62,6 +62,9 @@ def check_perf_access():
 		return
 
 	if level > 1:
+		if os.geteuid() == 0:
+			print("perf_event_paranoid = %d (high, but running as root — OK)" % level)
+			return
 		print()
 		print("=== perf Access Warning ===")
 		print("perf_event_paranoid = %d (needs to be <= 1 for non-root HPC access)" % level)
