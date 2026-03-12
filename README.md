@@ -1,3 +1,5 @@
+
+Orginal code was not made by me: https://github.com/onkar-omr/HPC-Collection-By-Running-Malaware-inside-LXC-Containers-.git   https://github.com/cryptolok/ASLRay.git
 [![Rawsec's CyberSecurity Inventory](http://inventory.raw.pm/img/badges/Rawsec-inventoried-FF5050_flat-square.svg)](http://inventory.raw.pm/tools.html#ASLRay)
 
 # ASLRay + HPC Data Collector
